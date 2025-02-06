@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fish Eats Food Game</title>
+    <style>
+        body {
+            background: linear-gradient(to bottom, #4facfe, #00f2fe);
+            overflow: hidden;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .fish {
+            position: absolute;
+            width: 100px;
+            pointer-events: none;
+            transform-origin: center;
+            transition: left 0.2s ease, top 0.2s ease, transform 0.1s linear;
+        }
+
+        .food {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            top: 0;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 0, 0.8));
+            animation: glow 1.5s infinite alternate;
+        }
+
+        .golden-food {
+            filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.8));
+            animation: goldenGlow 1.5s infinite alternate;
+        }
+
+        .obstacle {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            top: 0;
+            animation: fall linear;
+        }
+
+        .scoreboard {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        /* Game Over Overlay */
+        .game-over {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .game-over img {
+            width: 150px;
+        }
+
+        .game-over h1 {
+            font-size: 32px;
+            margin: 10px 0;
+        }
+
+        .restart-btn {
+            padding: 10px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            background: #ffcc00;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .restart-btn:hover {
+            background: #ffaa00;
+        }
+
+        /* Glow Animation */
+        @keyframes glow {
+            0% {
+                filter: drop-shadow(0 0 10px rgba(255, 255, 0, 0.8));
+            }
+            100% {
+                filter: drop-shadow(0 0 20px rgba(255, 255, 0, 1));
+            }
+        }
+
+        /* Golden Glow Animation */
+        @keyframes goldenGlow {
+            0% {
+                filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+            }
+            100% {
+                filter: drop-shadow(0 0 20px rgba(255, 215, 0, 1));
+            }
+        }
+
+        /* Combo Meter */
+        .combo-meter {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        /* Alerts */
+        .alert {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            animation: alertPop 0.5s ease-out;
+            display: none;
+        }
+
+        @keyframes alertPop {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+
+        /* Frenzy Mode */
+        .frenzy-mode {
+            background: linear-gradient(to bottom, #ff416c, #ff4b2b);
+        }
+
+        /* Daily Streak */
+        .daily-streak {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        /* Personal Best */
+        .personal-best {
+            position: absolute;
+            top: 110px;
+            left: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scoreboard">
+        Score: <span id="score">0</span> | Missed: <span id="missed">0</span>
+    </div>
+
+    <div class="combo-meter">
+        Combo: <span id="combo">0</span>
+    </div>
+
+    <div class="daily-streak">
+        Daily Streak: <span id="streak">0</span> days
+    </div>
+
+    <div class="personal-best">
+        Personal Best: <span id="personalBest">0</span>
+    </div>
+
+    <img src="https://i.gifer.com/ZKZl.gif" alt="Swimming Fish" class="fish" id="fish">
+
+    <!-- Game Over Screen -->
+    <div class="game-over" id="gameOverScreen">
+        <img src="https://i.gifer.com/ZKZl.gif" alt="Game Over Fish">
+        <h1>Game Over!</h1>
+        <p>You missed too many food items.</p>
+        <button class="restart-btn" onclick="resetGame()">Restart Game</button>
+        <button class="restart-btn" id="reviveBtn" onclick="revive()">Revive (1 Left)</button>
+    </div>
+
+    <!-- Alerts -->
+    <div class="alert" id="comboAlert"></div>
+    <div class="alert" id="frenzyAlert"></div>
+    <div class="alert" id="goldenFoodAlert"></div>
+    <div class="alert" id="reviveAlert"></div>
+
+    <!-- Audio for Chomp Sound -->
+    <audio id="chompSound" src="https://www.soundjay.com/human/sounds/bite-01.mp3"></audio>
+
+    <script>
+        let score = 0;
+        let missed = 0;
+        let combo = 0;
+        let streak = 0;
+        let personalBest = 0;
+        const maxMissed = 10;
+        let gameSpeed = 2; // Initial fall speed
+        let obstacleInterval = 5000; // Initial obstacle spawn interval
+        let isFrenzyMode = false;
+        let goldenFoodActive = false;
+        let reviveUsed = false;
+
+        const foodImages = [
+            "https://png.pngtree.com/png-clipart/20220124/original/pngtree-hand-drawn-cartoon-sandwich-decorative-pattern-png-image_7176078.png",
+            "https://png.pngtree.com/png-clipart/20220117/original/pngtree-sandwich-strawberry-sandwich-cake-png-image_7125894.png",
+            "https://png.pngtree.com/png-clipart/20221220/original/pngtree-subway-food-png-image_8789336.png"
+        ];
+
+        const goldenFoodImage = "https://png.pngtree.com/png-clipart/20220117/original/pngtree-golden-sandwich-png-image_7125895.png";
+        const obstacleGif = "https://media3.giphy.com/media/iycRyjXTElqfR0MLPC/giphy.gif?cid=6c09b952g0clb7ffje6bovwz1xovhiov2o7udcuxdtboygc9&ep=v1_internal_gif_by_id&rid=giphy.gif&ct=s";
+        const fishHitGif = "https://i.gifer.com/origin/62/623cdcca882db2d7efa8d32424a61d29_w200.gif";
+
+        // Load daily streak and personal best from localStorage
+        if (localStorage.getItem("streak")) {
+            streak = parseInt(localStorage.getItem("streak"));
+        }
+        if (localStorage.getItem("personalBest")) {
+            personalBest = parseInt(localStorage.getItem("personalBest"));
+        }
+        document.getElementById("streak").innerText = streak;
+        document.getElementById("personalBest").innerText = personalBest;
+
+        document.addEventListener("mousemove", (event) => {
+            const fish = document.getElementById("fish");
+
+            let x = event.clientX;
+            let y = event.clientY;
+
+            fish.style.left = `${x}px`;
+            fish.style.top = `${y - 60}px`;
+
+            if (event.movementX > 0) {
+                fish.style.transform = "scaleX(-1)";
+            } else if (event.movementX < 0) {
+                fish.style.transform = "scaleX(1)";
+            }
+
+            checkCollision();
+        });
+
+        function dropFood() {
+            if (missed >= maxMissed) return; // Stop spawning food if game over
+
+            const food = document.createElement("img");
+            food.classList.add("food");
+
+            // Randomly spawn golden food
+            if (Math.random() < 0.1 && !goldenFoodActive) {
+                food.src = goldenFoodImage;
+                food.classList.add("golden-food");
+                goldenFoodActive = true;
+                setTimeout(() => {
+                    goldenFoodActive = false;
+                }, 5000); // Golden food lasts for 5 seconds
+            } else {
+                food.src = foodImages[Math.floor(Math.random() * foodImages.length)];
+            }
+
+            let startX = Math.random() * window.innerWidth;
+            food.style.left = `${startX}px`;
+            document.body.appendChild(food);
+
+            let fallDuration = gameSpeed + Math.random() * 2; // Faster over time
+            if (isFrenzyMode) fallDuration *= 0.5; // Faster in frenzy mode
+            food.style.animation = `fall ${fallDuration}s linear forwards`;
+
+            // Check if food reaches bottom without being eaten
+            setTimeout(() => {
+                if (document.body.contains(food)) {
+                    food.remove();
+                    missed++;
+                    combo = 0; // Reset combo on miss
+                    document.getElementById("missed").innerText = missed;
+                    document.getElementById("combo").innerText = combo;
+                    checkGameOver();
+                    showAlert("Combo Lost!", "#ff4b2b");
+                }
+            }, fallDuration * 1000);
+        }
+
+        function dropObstacle() {
+            if (missed >= maxMissed) return; // Stop spawning obstacles if game over
+
+            const obstacle = document.createElement("img");
+            obstacle.classList.add("obstacle");
+            obstacle.src = obstacleGif;
+
+            let startX = Math.random() * window.innerWidth;
+            obstacle.style.left = `${startX}px`;
+            document.body.appendChild(obstacle);
+
+            let fallDuration = gameSpeed + Math.random() * 2; // Faster over time
+            if (isFrenzyMode) fallDuration *= 0.5; // Faster in frenzy mode
+            obstacle.style.animation = `fall ${fallDuration}s linear forwards`;
+
+            // Check if obstacle reaches bottom
+            setTimeout(() => {
+                if (document.body.contains(obstacle)) {
+                    obstacle.remove();
+                }
+            }, fallDuration * 1000);
+
+            // Check collision with fish
+            const checkObstacleCollision = setInterval(() => {
+                if (missed >= maxMissed) {
+                    clearInterval(checkObstacleCollision);
+                    return;
+                }
+
+                let fishRect = document.getElementById("fish").getBoundingClientRect();
+                let obstacleRect = obstacle.getBoundingClientRect();
+
+                if (
+                    fishRect.left < obstacleRect.right &&
+                    fishRect.right > obstacleRect.left &&
+                    fishRect.top < obstacleRect.bottom &&
+                    fishRect.bottom > obstacleRect.top
+                ) {
+                    // Replace fish with hit GIF
+                    const fish = document.getElementById("fish");
+                    fish.src = fishHitGif;
+                    fish.style.width = "150px"; // Adjust size if needed
+
+                    // Remove obstacle
+                    obstacle.remove();
+
+                    // End game
+                    missed = maxMissed;
+                    document.getElementById("missed").innerText = missed;
+                    checkGameOver();
+                    clearInterval(checkObstacleCollision);
+                }
+            }, 100);
+        }
+
+        function increaseDifficulty() {
+            if (gameSpeed > 0.5) gameSpeed -= 0.1; // Increase speed
+            if (obstacleInterval > 1000) obstacleInterval -= 500; // Spawn obstacles more frequently
+        }
+
+        setInterval(dropFood, 1000); // Drop food every second
+        setInterval(dropObstacle, obstacleInterval); // Drop obstacles
+        setInterval(increaseDifficulty, 10000); // Increase difficulty every 10 seconds
+
+        function checkCollision() {
+            const fish = document.getElementById("fish");
+            const foods = document.querySelectorAll(".food");
+
+            let fishRect = fish.getBoundingClientRect();
+
+            foods.forEach(food => {
+                let foodRect = food.getBoundingClientRect();
+
+                if (
+                    fishRect.left < foodRect.right &&
+                    fishRect.right > foodRect.left &&
+                    fishRect.top < foodRect.bottom &&
+                    fishRect.bottom > foodRect.top
+                ) {
+                    food.remove();
+                    score++;
+                    combo++;
+                    if (food.classList.contains("golden-food")) {
+                        score += 5; // Bonus points for golden food
+                        showAlert("Golden Food +5!", "#ffcc00");
+                    }
+                    document.getElementById("score").innerText = score;
+                    document.getElementById("combo").innerText = combo;
+                    playChompSound();
+
+                    // Show combo alerts
+                    if (combo % 5 === 0) {
+                        showAlert(`${combo} Combo!`, "#00ff00");
+                    }
+
+                    // Activate Frenzy Mode
+                    if (combo >= 10 && !isFrenzyMode) {
+                        isFrenzyMode = true;
+                        document.body.classList.add("frenzy-mode");
+                        showAlert("Frenzy Mode!", "#ffcc00");
+                    }
+
+                    // Update personal best
+                    if (score > personalBest) {
+                        personalBest = score;
+                        localStorage.setItem("personalBest", personalBest);
+                        document.getElementById("personalBest").innerText = personalBest;
+                        showAlert("New Personal Best!", "#00ff00");
+                    }
+                }
+            });
+        }
+
+        function playChompSound() {
+            const chompSound = document.getElementById("chompSound");
+            chompSound.currentTime = 0; // Reset sound to start
+            chompSound.play();
+        }
+
+        function checkGameOver() {
+            if (missed >= maxMissed) {
+                document.getElementById("gameOverScreen").style.display = "flex";
+                if (reviveUsed) {
+                    document.getElementById("reviveBtn").style.display = "none";
+                } else {
+                    document.getElementById("reviveBtn").style.display = "inline-block";
+                }
+            }
+        }
+
+        function revive() {
+            missed = 0;
+            document.getElementById("missed").innerText = missed;
+            document.getElementById("gameOverScreen").style.display = "none";
+            reviveUsed = true;
+            showAlert("Revived! One more chance!", "#00ff00");
+        }
+
+        function resetGame() {
+            score = 0;
+            missed = 0;
+            combo = 0;
+            gameSpeed = 2;
+            obstacleInterval = 5000;
+            isFrenzyMode = false;
+            reviveUsed = false;
+            document.getElementById("score").innerText = score;
+            document.getElementById("missed").innerText = missed;
+            document.getElementById("combo").innerText = combo;
+
+            // Reset fish to original GIF
+            const fish = document.getElementById("fish");
+            fish.src = "https://i.gifer.com/ZKZl.gif";
+            fish.style.width = "100px";
+
+            // Remove all existing food and obstacle elements
+            document.querySelectorAll(".food, .obstacle").forEach(element => element.remove());
+
+            // Hide Game Over Screen
+            document.getElementById("gameOverScreen").style.display = "none";
+
+            // Reset Frenzy Mode
+            document.body.classList.remove("frenzy-mode");
+
+            // Update daily streak
+            updateStreak();
+        }
+
+        function updateStreak() {
+            const lastPlayedDate = localStorage.getItem("lastPlayedDate");
+            const currentDate = new Date().toDateString();
+
+            if (lastPlayedDate !== currentDate) {
+                streak++;
+                localStorage.setItem("streak", streak);
+                localStorage.setItem("lastPlayedDate", currentDate);
+                document.getElementById("streak").innerText = streak;
+                showAlert(`Daily Streak: ${streak} days!`, "#00ff00");
+            }
+        }
+
+        function showAlert(message, color) {
+            const alert = document.getElementById("comboAlert");
+            alert.textContent = message;
+            alert.style.backgroundColor = color;
+            alert.style.display = "block";
+            setTimeout(() => {
+                alert.style.display = "none";
+            }, 2000);
+        }
+
+        // Food Falling Animation
+        const style = document.createElement("style");
+        style.innerHTML = `
+            @keyframes fall {
+                0% { top: 0;  }
+                100% { top: 100vh; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+
+</body>
+</html>
